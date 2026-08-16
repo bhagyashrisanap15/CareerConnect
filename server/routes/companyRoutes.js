@@ -1,0 +1,10 @@
+import { Router } from "express";
+import { protect, authorize } from "../middleware/authMiddleware.js";
+import { createCompany, getCompanies, getCompany, updateCompany, deleteCompany } from "../controllers/companyController.js";
+const router = Router();
+router.get("/", getCompanies);
+router.get("/:id", getCompany);
+router.post("/", protect, authorize("recruiter"), createCompany);
+router.put("/:id", protect, authorize("recruiter"), updateCompany);
+router.delete("/:id", protect, authorize("recruiter"), deleteCompany);
+export default router;

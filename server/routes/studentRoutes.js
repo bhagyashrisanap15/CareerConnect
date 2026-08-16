@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { protect, authorize } from "../middleware/authMiddleware.js";
+import { getProfile, updateProfile, uploadResume, getApplications, getSavedJobs, saveJob, unsaveJob } from "../controllers/studentController.js";
+import { uploadResume as upload } from "../middleware/uploadMiddleware.js";
+const router = Router();
+router.use(protect, authorize("student"));
+router.get("/profile", getProfile);
+router.put("/profile", updateProfile);
+router.post("/resume", upload, uploadResume);
+router.get("/applications", getApplications);
+router.get("/saved-jobs", getSavedJobs);
+router.post("/saved-jobs/:jobId", saveJob);
+router.delete("/saved-jobs/:jobId", unsaveJob);
+export default router;

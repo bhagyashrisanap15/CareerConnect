@@ -2,35 +2,35 @@ import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import express from "express";
+import dns from "node:dns";
 
 dotenv.config();
 
+// Force Node.js DNS resolver to use public DNS
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
 const app = express();
 
-app.use(express.json());
 app.use(cors());
-
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URL);
-    if (conn) {
-      console.log("mongoDB connected");
-    }
-  } catch (error) {
-    console.error("mongoDB connection error:", error);
-  }
-};
-
-app.get("/", (req,res) => {
-  res.json({
-    success: true,
-    message:"API is running...",
-  });
-});
+app.use(express.json());
 
 const PORT = process.env.PORT || 8080;
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  connectDB();
-});
+const connectDB = async () => {
+  try {
+    console.log("Connecting to MongoDB...");
+
+    await mongoose.connect(process.env.MONGODB_URL);
+
+    console.log("MongoDB connected successfully");
+
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("MongoDB connection error:", error);
+    process.exit(1);
+  }
+};
+
+connectDB();
