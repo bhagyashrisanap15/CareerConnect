@@ -1,0 +1,1 @@
+import {Link} from "react-router-dom";export default function RecruiterProfile(){const u=JSON.parse(localStorage.getItem("user")||"{}");return <main className="page section"><div className="card detail"><h1>Recruiter Profile</h1><p>Name: {u.name||"-"}</p><p>Email: {u.email||"-"}</p><Link className="btn primary" to="/recruiter/company">Company Profile</Link></div></main>}
