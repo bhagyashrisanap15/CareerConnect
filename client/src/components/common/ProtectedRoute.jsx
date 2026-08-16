@@ -1,22 +1,23 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 
-export default function ProtectedRoute({ children, user, requiredRole }) {
+export default function ProtectedRoute({ children, user: propUser, requiredRole }) {
   const location = useLocation();
+  const { user: authUser } = useAuth();
+  const currentUser = propUser || authUser;
 
-  if (!user) {
-    // Redirect to login if user is not authenticated
+  if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
-    // If route requires a specific role and the user role doesn't match
-    if (user.role === 'admin') {
+  if (requiredRole && currentUser.role !== requiredRole) {
+    if (currentUser.role === 'admin') {
       return <Navigate to="/admin/dashboard" replace />;
-    } else if (user.role === 'recruiter') {
+    } else if (currentUser.role === 'recruiter') {
       return <Navigate to="/recruiter/dashboard" replace />;
     } else {
-      return <Navigate to="/jobs" replace />;
+      return <Navigate to="/student/dashboard" replace />;
     }
   }
 
