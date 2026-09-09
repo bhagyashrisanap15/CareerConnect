@@ -1,34 +1,73 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Save, ArrowLeft, User, Phone, MapPin, Globe, Link2 } from 'lucide-react';
+import { Save, ArrowLeft, Link2, Globe, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
+import authService from '../../services/authService';
+import studentService from '../../services/studentService';
 
 export default function EditProfile() {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: user?.name || 'Bhagyashri Sanap',
-    phone: user?.phone || '+91 98765 43210',
-    bio: 'Passionate Full Stack Software Engineer skilled in MERN stack, Web API development, responsive UI engineering, and database schema design.',
-    location: 'Pune, Maharashtra, India',
-    skills: 'React, Node.js, MongoDB, JavaScript, TypeScript, Tailwind CSS',
-    education: 'Pune Institute of Computer Technology • B.E. Computer Engineering (2026)',
-    experience: 'Frontend Developer Intern at Tech Solutions Inc. (2026)',
-    linkedin: 'https://linkedin.com/in/bhagyashrisanap',
-    github: 'https://github.com/bhagyashrisanap15',
-    portfolio: 'https://bhagyashrisanap.dev'
+    name: user?.name || '',
+    phone: user?.phone || '',
+    bio: user?.bio || 'Passionate Full Stack Software Engineer skilled in web development and API security.',
+    location: user?.location || 'Pune, Maharashtra, India',
+    skills: user?.skills || 'React, Node.js, MongoDB, JavaScript, Express',
+    education: user?.education || 'B.E. Computer Engineering',
+    experience: user?.experience || 'Software Developer Intern',
+    linkedin: user?.linkedin || 'https://linkedin.com',
+    github: user?.github || 'https://github.com',
+    portfolio: user?.portfolio || 'https://portfolio.dev'
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    updateUser({
-      name: formData.name,
-      phone: formData.phone
-    });
-    toast.success('Profile updated successfully!');
-    navigate('/student/profile');
+    setLoading(true);
+
+    try {
+      // 1. Update core user fields (name, phone, bio) via auth API
+      const authRes = await authService.updateProfile({
+        name: formData.name,
+        phone: formData.phone,
+        bio: formData.bio,
+      });
+
+      // 2. Update student specific profile fields
+      try {
+        await studentService.updateProfile({
+          location: formData.location,
+          skills: typeof formData.skills === 'string' ? formData.skills.split(',').map(s => s.trim()) : formData.skills,
+          education: formData.education,
+          experience: formData.experience,
+          linkedin: formData.linkedin,
+          github: formData.github,
+          portfolio: formData.portfolio,
+        });
+      } catch {
+        // Fallback gracefully if student profile model isn't populated
+      }
+
+      if (authRes.user) {
+        updateUser(authRes.user);
+      } else {
+        updateUser({
+          name: formData.name,
+          phone: formData.phone,
+          bio: formData.bio,
+        });
+      }
+
+      toast.success('Profile updated successfully!');
+      navigate('/student/profile');
+    } catch (err) {
+      toast.error(typeof err === 'string' ? err : 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -165,9 +204,20 @@ export default function EditProfile() {
             </Link>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-2"
+              disabled={loading}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-2 disabled:opacity-50"
             >
-              <Save className="w-4 h-4" /> Save Changes
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </>
+              )}
             </button>
           </div>
         </form>

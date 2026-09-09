@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Briefcase, User, Mail, Lock, Phone, Building2, UserCheck, ArrowRight } from 'lucide-react';
+import { Briefcase, User, Mail, Lock, Phone, Building2, UserCheck, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
+import authService from '../../services/authService';
 
 export default function Register() {
-  // Role Selector: 'student' or 'recruiter'
   const [role, setRole] = useState('student');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -20,30 +22,59 @@ export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.name.trim()) {
+      toast.error('Full name is required');
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      toast.error('Email address is required');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
 
-    const newUser = {
-      id: `user-${Date.now()}`,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      companyName: role === 'recruiter' ? formData.companyName : undefined,
-      role: role
-    };
+    if (role === 'recruiter' && !formData.companyName.trim()) {
+      toast.error('Company name is required for recruiter accounts');
+      return;
+    }
 
-    register(newUser);
-    toast.success(`Account registered successfully as ${role.toUpperCase()}!`);
+    setLoading(true);
 
-    if (role === 'recruiter') {
-      navigate('/recruiter/dashboard');
-    } else {
-      navigate('/student/dashboard');
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+        role: role,
+        phone: formData.phone.trim(),
+        companyName: role === 'recruiter' ? formData.companyName.trim() : undefined,
+      };
+
+      const data = await authService.register(payload);
+      register(data);
+      toast.success(data.message || `Account created successfully as ${role.toUpperCase()}!`);
+
+      if (role === 'recruiter') {
+        navigate('/recruiter/dashboard', { replace: true });
+      } else {
+        navigate('/student/dashboard', { replace: true });
+      }
+    } catch (err) {
+      toast.error(typeof err === 'string' ? err : 'Registration failed. Please check your inputs.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -65,7 +96,7 @@ export default function Register() {
           <p className="text-xs text-slate-400">Choose your account type to get started</p>
         </div>
 
-        {/* First Ask: Role Selection Pills */}
+        {/* Role Selection Pills */}
         <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-950 rounded-2xl border border-slate-800">
           <button
             type="button"
@@ -150,7 +181,6 @@ export default function Register() {
               <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
               <input
                 type="tel"
-                required
                 placeholder="+91 98765 43210"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -165,13 +195,20 @@ export default function Register() {
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -180,12 +217,12 @@ export default function Register() {
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -193,14 +230,24 @@ export default function Register() {
 
           <button
             type="submit"
-            className={`w-full py-3 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-white ${
+            disabled={loading}
+            className={`w-full py-3 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-white disabled:opacity-50 disabled:cursor-not-allowed ${
               role === 'recruiter'
                 ? 'bg-violet-600 hover:bg-violet-500 shadow-violet-600/20'
                 : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'
             }`}
           >
-            <span>Register as {role === 'recruiter' ? 'Recruiter' : 'Student'}</span>
-            <ArrowRight className="w-4 h-4" />
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Creating Account...</span>
+              </>
+            ) : (
+              <>
+                <span>Register as {role === 'recruiter' ? 'Recruiter' : 'Student'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 

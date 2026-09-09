@@ -1,61 +1,94 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Briefcase, Mail, Lock, LogIn, Sparkles, UserCheck, Shield, Building2 } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Briefcase, Mail, Lock, LogIn, UserCheck, Shield, Building2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
+import authService from '../../services/authService';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
-    // Mock Login handling
-    let role = 'student';
-    let name = email.split('@')[0] || 'User';
-
-    if (email.includes('recruiter')) {
-      role = 'recruiter';
-    } else if (email.includes('admin')) {
-      role = 'admin';
+    if (!email || !email.trim()) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    if (!password) {
+      toast.error('Please enter your password');
+      return;
     }
 
-    const mockUser = {
-      id: `user-${Date.now()}`,
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      email: email,
-      role: role
-    };
+    setLoading(true);
 
-    setTimeout(() => {
-      login(mockUser);
-      toast.success(`Welcome back, ${mockUser.name}!`);
+    try {
+      const data = await authService.login({ email: email.trim(), password });
+      login(data);
+      toast.success(data.message || `Welcome back, ${data.user.name}!`);
+
+      const from = location.state?.from?.pathname;
+      if (from) {
+        navigate(from, { replace: true });
+      } else if (data.user.role === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else if (data.user.role === 'recruiter') {
+        navigate('/recruiter/dashboard', { replace: true });
+      } else {
+        navigate('/student/dashboard', { replace: true });
+      }
+    } catch (err) {
+      toast.error(typeof err === 'string' ? err : 'Login failed. Please check your credentials.');
+    } finally {
       setLoading(false);
-
-      if (role === 'admin') navigate('/admin/dashboard');
-      else if (role === 'recruiter') navigate('/recruiter/dashboard');
-      else navigate('/student/dashboard');
-    }, 400);
+    }
   };
 
-  const handleQuickLogin = (roleType) => {
-    let mockUser = {
-      id: `demo-${roleType}`,
-      name: roleType === 'admin' ? 'System Admin' : roleType === 'recruiter' ? 'Recruiter User' : 'Bhagyashri Sanap',
-      email: `${roleType}@careerconnect.com`,
-      role: roleType
+  const handleQuickLogin = async (roleType) => {
+    setLoading(true);
+    const demoCredentials = {
+      student: { email: 'student@example.com', password: 'Password123!', name: 'Demo Student' },
+      recruiter: { email: 'recruiter@example.com', password: 'Password123!', name: 'Demo Recruiter', companyName: 'Apex Corp' },
+      admin: { email: 'admin@example.com', password: 'Password123!', name: 'Demo Admin' },
     };
 
-    login(mockUser);
-    toast.success(`Logged in as Demo ${roleType.toUpperCase()}`);
-    if (roleType === 'admin') navigate('/admin/dashboard');
-    else if (roleType === 'recruiter') navigate('/recruiter/dashboard');
-    else navigate('/student/dashboard');
+    const creds = demoCredentials[roleType];
+    setEmail(creds.email);
+    setPassword(creds.password);
+
+    try {
+      let data;
+      try {
+        data = await authService.login({ email: creds.email, password: creds.password });
+      } catch {
+        // If demo user does not exist in DB yet, attempt to register automatically
+        data = await authService.register({
+          name: creds.name,
+          email: creds.email,
+          password: creds.password,
+          role: roleType,
+          companyName: creds.companyName,
+        });
+      }
+
+      login(data);
+      toast.success(`Logged in as Demo ${roleType.toUpperCase()}`);
+
+      if (roleType === 'admin') navigate('/admin/dashboard', { replace: true });
+      else if (roleType === 'recruiter') navigate('/recruiter/dashboard', { replace: true });
+      else navigate('/student/dashboard', { replace: true });
+    } catch (err) {
+      toast.error(typeof err === 'string' ? err : 'Quick login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -106,23 +139,40 @@ export default function Login() {
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors"
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <LogIn className="w-4 h-4" />
-            <span>{loading ? 'Signing in...' : 'Login'}</span>
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Signing in...</span>
+              </>
+            ) : (
+              <>
+                <LogIn className="w-4 h-4" />
+                <span>Login</span>
+              </>
+            )}
           </button>
         </form>
 
@@ -134,24 +184,27 @@ export default function Login() {
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
+              disabled={loading}
               onClick={() => handleQuickLogin('student')}
-              className="px-2 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+              className="px-2 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
             >
               <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
               Student
             </button>
             <button
               type="button"
+              disabled={loading}
               onClick={() => handleQuickLogin('recruiter')}
-              className="px-2 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+              className="px-2 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
             >
               <Building2 className="w-3.5 h-3.5 text-violet-400" />
               Recruiter
             </button>
             <button
               type="button"
+              disabled={loading}
               onClick={() => handleQuickLogin('admin')}
-              className="px-2 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+              className="px-2 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
             >
               <Shield className="w-3.5 h-3.5 text-emerald-400" />
               Admin
