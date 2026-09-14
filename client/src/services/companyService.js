@@ -30,8 +30,24 @@ export const companyService = {
 
   async createOrUpdateCompany(companyData) {
     try {
-      const response = await api.post('/companies', companyData);
-      return response.data;
+      let existingCompany = null;
+      if (companyData._id) {
+        existingCompany = companyData;
+      } else {
+        try {
+          existingCompany = await this.getRecruiterCompany();
+        } catch {
+          // Company does not exist yet
+        }
+      }
+
+      if (existingCompany && existingCompany._id) {
+        const response = await api.put(`/companies/${existingCompany._id}`, companyData);
+        return response.data;
+      } else {
+        const response = await api.post('/companies', companyData);
+        return response.data;
+      }
     } catch (error) {
       throw error.response?.data?.message || 'Failed to save company profile';
     }

@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
-import { createCompany, getCompanies, getCompany, updateCompany, deleteCompany } from "../controllers/companyController.js";
+import { createCompany, getCompanies, getCompany, updateCompany, deleteCompany, getMyCompany } from "../controllers/companyController.js";
 const router = Router();
 router.get("/", getCompanies);
+router.get("/my-company", protect, authorize("recruiter"), getMyCompany);
 router.get("/:id", getCompany);
 router.post("/", protect, authorize("recruiter"), createCompany);
 router.put("/:id", protect, authorize("recruiter"), updateCompany);

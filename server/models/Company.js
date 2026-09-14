@@ -9,6 +9,7 @@ const companySchema = new mongoose.Schema({
   size: String,
   location: String,
   foundedYear: Number,
+  isApproved: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
 }, { timestamps: true });
 

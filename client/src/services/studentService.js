@@ -28,6 +28,33 @@ export const studentService = {
     } catch (error) {
       throw error.response?.data?.message || 'Failed to upload resume';
     }
+  },
+
+  async getSavedJobs() {
+    try {
+      const response = await api.get('/student/saved-jobs');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.message || 'Failed to fetch saved jobs';
+    }
+  },
+
+  async saveJob(jobId) {
+    try {
+      const response = await api.post(`/student/saved-jobs/${jobId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.message || 'Failed to save job';
+    }
+  },
+
+  async unsaveJob(jobId) {
+    try {
+      const response = await api.delete(`/student/saved-jobs/${jobId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.message || 'Failed to unsave job';
+    }
   }
 };
 

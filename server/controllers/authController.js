@@ -88,7 +88,7 @@ export const register = async (req, res, next) => {
       if (companyName && companyName.trim()) {
         const company = await Company.create({
           name: companyName.trim(),
-          recruiter: user._id,
+          createdBy: user._id,
         });
         companyId = company._id;
       }

@@ -5,6 +5,7 @@ const recruiterProfileSchema = new mongoose.Schema({
   designation: String,
   phone: String,
   company: { type: mongoose.Schema.Types.ObjectId, ref: "Company" },
+  companyName: String,
   bio: String,
   isVerified: { type: Boolean, default: false }
 }, { timestamps: true });

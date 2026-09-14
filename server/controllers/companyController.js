@@ -28,3 +28,9 @@ export const deleteCompany = async (req, res) => {
   if (!company) return res.status(404).json({ message: "Company not found or not authorized" });
   res.json({ message: "Company deleted" });
 };
+
+export const getMyCompany = async (req, res) => {
+  const company = await Company.findOne({ createdBy: req.user._id });
+  if (!company) return res.status(404).json({ message: "Company profile not found" });
+  res.json(company);
+};

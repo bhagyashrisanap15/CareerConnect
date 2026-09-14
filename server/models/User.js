@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   avatar: { type: String, default: "" },
   bio: { type: String, trim: true, default: "" },
   isActive: { type: Boolean, default: true },
+  isBlocked: { type: Boolean, default: false },
   lastLogin: { type: Date, default: null }
 }, { timestamps: true });
 

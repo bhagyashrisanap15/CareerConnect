@@ -1,7 +1,7 @@
 export const errorHandler = (err, req, res, next) => {
   console.error("Unhandled Error:", err);
 
-  const statusCode = err.statusCode || res.statusCode === 200 ? 500 : res.statusCode || 500;
+  const statusCode = err.statusCode || (res.statusCode === 200 ? 500 : res.statusCode || 500);
   const isProduction = process.env.NODE_ENV === "production";
 
   // Handle Mongoose Validation Error

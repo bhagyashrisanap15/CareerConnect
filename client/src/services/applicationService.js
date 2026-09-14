@@ -12,7 +12,7 @@ export const applicationService = {
 
   async getStudentApplications() {
     try {
-      const response = await api.get('/applications/student');
+      const response = await api.get('/applications/my');
       return response.data;
     } catch (error) {
       throw error.response?.data?.message || 'Failed to fetch applications';
@@ -48,7 +48,7 @@ export const applicationService = {
 
   async withdrawApplication(id) {
     try {
-      const response = await api.delete(`/applications/${id}`);
+      const response = await api.patch(`/applications/${id}/withdraw`);
       return response.data;
     } catch (error) {
       throw error.response?.data?.message || 'Failed to withdraw application';

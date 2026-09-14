@@ -44,3 +44,22 @@ export const withdrawApplication = async (req, res) => {
   await application.save();
   res.json(application);
 };
+
+export const getApplicationDetail = async (req, res) => {
+  const application = await Application.findById(req.params.id)
+    .populate({ path: "job", populate: { path: "company", select: "name logo location" } })
+    .populate("student", "name email phone avatar")
+    .populate("recruiter", "name email");
+
+  if (!application) return res.status(404).json({ message: "Application not found" });
+
+  const isOwnerStudent = String(application.student?._id || application.student) === String(req.user._id);
+  const isOwnerRecruiter = String(application.recruiter?._id || application.recruiter) === String(req.user._id);
+  const isAdmin = req.user.role === "admin";
+
+  if (!isOwnerStudent && !isOwnerRecruiter && !isAdmin) {
+    return res.status(403).json({ message: "Not authorized to view this application" });
+  }
+
+  res.json(application);
+};

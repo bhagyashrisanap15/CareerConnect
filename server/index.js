@@ -4,6 +4,11 @@ import mongoose from "mongoose";
 import express from "express";
 import dns from "node:dns";
 
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import { protect } from "./middleware/authMiddleware.js";
+
 // Security & Error Middlewares
 import { securityHeaders, apiRateLimiter } from "./middleware/securityMiddleware.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorMiddleware.js";
@@ -20,6 +25,9 @@ import studentRoutes from "./routes/studentRoutes.js";
 import recruiterRoutes from "./routes/recruiterRoutes.js";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Force Node.js DNS resolver to use public DNS
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
@@ -42,7 +50,7 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(null, true); // Allow dev access
+        callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
@@ -65,6 +73,15 @@ app.get("/api/health", (_req, res) => {
     service: "CareerConnect API",
     timestamp: new Date().toISOString(),
   });
+});
+
+// Protected Resume file download route
+app.get("/uploads/resumes/:filename", protect, (req, res) => {
+  const filePath = path.join(__dirname, "uploads", "resumes", req.params.filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ message: "Resume file not found" });
+  }
+  res.sendFile(filePath);
 });
 
 // API Routes
