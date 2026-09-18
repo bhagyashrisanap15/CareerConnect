@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Send, CheckCircle } from 'lucide-react';
 import { InlineError } from '../common/ErrorMessage';
+import authService from '../../services/authService';
 
 export default function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
@@ -9,7 +10,7 @@ export default function ForgotPasswordForm() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email) {
       setError('Email address is required');
@@ -21,10 +22,15 @@ export default function ForgotPasswordForm() {
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      // NOTE: Email delivery (e.g. Nodemailer/SendGrid) is not yet wired up on backend, but request hits the real backend endpoint.
+      await authService.forgotPassword(email);
       setIsSubmitted(true);
-    }, 1200);
+    } catch (err) {
+      setError(typeof err === 'string' ? err : err.message || 'Failed to send reset link');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

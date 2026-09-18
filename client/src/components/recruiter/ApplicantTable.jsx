@@ -1,6 +1,6 @@
 import React from 'react';
 import { Mail, Download, UserCheck, Trash2, Eye, UserX } from 'lucide-react';
-import ApplicationStatus from '../applications/ApplicationStatus';
+import ApplicationStatus from '../common/ApplicationStatus';
 
 export default function ApplicantTable({ applicants = [], onStatusChange }) {
   if (applicants.length === 0) {

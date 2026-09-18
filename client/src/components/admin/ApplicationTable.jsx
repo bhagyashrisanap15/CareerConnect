@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Building, Check, X, ShieldAlert, ArrowUpRight } from 'lucide-react';
-import ApplicationStatus from '../applications/ApplicationStatus';
+import ApplicationStatus from '../common/ApplicationStatus';
 
 export default function ApplicationTable({ applications = [], onUpdateStatus }) {
   if (applications.length === 0) {

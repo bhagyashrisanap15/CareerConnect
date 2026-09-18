@@ -11,7 +11,9 @@ const userSchema = new mongoose.Schema({
   bio: { type: String, trim: true, default: "" },
   isActive: { type: Boolean, default: true },
   isBlocked: { type: Boolean, default: false },
-  lastLogin: { type: Date, default: null }
+  lastLogin: { type: Date, default: null },
+  resetPasswordToken: { type: String, select: false },
+  resetPasswordExpires: { type: Date, select: false }
 }, { timestamps: true });
 
 userSchema.pre("save", async function() {

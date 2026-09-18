@@ -64,6 +64,24 @@ export const authService = {
     }
   },
 
+  async forgotPassword(email) {
+    try {
+      const response = await api.post('/auth/forgot-password', { email });
+      return response.data;
+    } catch (error) {
+      throw extractErrorMessage(error, 'Failed to process forgot password request');
+    }
+  },
+
+  async resetPassword({ token, password, confirmPassword }) {
+    try {
+      const response = await api.post(`/auth/reset-password/${token}`, { password, confirmPassword });
+      return response.data;
+    } catch (error) {
+      throw extractErrorMessage(error, 'Failed to reset password');
+    }
+  },
+
   async logout() {
     try {
       const response = await api.post('/auth/logout');

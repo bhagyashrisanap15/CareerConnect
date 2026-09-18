@@ -1,5 +1,5 @@
 import React from 'react';
-import JobCard from './JobCard';
+import JobCard from '../common/JobCard';
 import { Briefcase } from 'lucide-react';
 
 export default function JobList({ jobs = [], onJobClick }) {
@@ -23,9 +23,9 @@ export default function JobList({ jobs = [], onJobClick }) {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {jobs.map((job) => (
         <JobCard
-          key={job.id}
+          key={job.id || job._id}
           job={job}
-          onClick={() => onJobClick && onJobClick(job)}
+          onJobClick={onJobClick}
         />
       ))}
     </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import ApplicationStatus from './ApplicationStatus';
+import ApplicationStatus from '../common/ApplicationStatus';
 import { Calendar, Building, Download, Eye } from 'lucide-react';
 
 export default function ApplicationTable({ applications = [], onCancel }) {

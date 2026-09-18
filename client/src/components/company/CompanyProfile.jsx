@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapPin, Globe, Users, Briefcase, Building, ChevronLeft } from 'lucide-react';
-import JobCard from '../jobs/JobCard';
+import JobCard from '../common/JobCard';
 
 export default function CompanyProfile({ company, activeJobs = [], onBack, onJobClick }) {
   if (!company) {
@@ -91,9 +91,9 @@ export default function CompanyProfile({ company, activeJobs = [], onBack, onJob
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {activeJobs.map((job) => (
                 <JobCard
-                  key={job.id}
+                  key={job.id || job._id}
                   job={job}
-                  onClick={() => onJobClick && onJobClick(job)}
+                  onJobClick={onJobClick}
                 />
               ))}
             </div>

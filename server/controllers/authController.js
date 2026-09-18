@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import User from "../models/User.js";
 import StudentProfile from "../models/StudentProfile.js";
 import RecruiterProfile from "../models/RecruiterProfile.js";
@@ -248,6 +249,114 @@ export const updateAuthProfile = async (req, res, next) => {
       success: true,
       message: "Profile updated successfully",
       user: formatPublicUser(user),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/forgot-password
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const errors = {};
+    if (!email || typeof email !== "string" || !email.trim()) {
+      errors.email = "Email address is required";
+    } else if (!isValidEmail(email.trim())) {
+      errors.email = "Please provide a valid email address";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors,
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this email address",
+        errors: { email: "Email not found" },
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiry
+    await user.save();
+
+    // NOTE: Email delivery service (e.g. Nodemailer/SendGrid) is not yet wired up.
+    // In production, an email containing the reset link would be sent here.
+    console.log(`[AUTH] Password reset token generated for ${user.email}: ${resetToken}`);
+
+    return res.json({
+      success: true,
+      message: "Password reset instructions sent to your email",
+      resetToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/reset-password/:token (and POST /api/auth/reset-password)
+export const resetPassword = async (req, res, next) => {
+  try {
+    const token = req.params.token || req.body.token;
+    const { password, confirmPassword } = req.body;
+
+    const errors = {};
+    if (!token) {
+      errors.token = "Reset token is required";
+    }
+    if (!password || typeof password !== "string") {
+      errors.password = "New password is required";
+    } else if (password.length < 6) {
+      errors.password = "Password must be at least 6 characters long";
+    }
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+      errors.confirmPassword = "Passwords do not match";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors,
+      });
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset token",
+      });
+    }
+
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password has been reset successfully",
     });
   } catch (error) {
     next(error);

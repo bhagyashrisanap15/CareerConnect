@@ -1,5 +1,5 @@
 import React from 'react';
-import ApplicationStatus from './ApplicationStatus';
+import ApplicationStatus from '../common/ApplicationStatus';
 import { Calendar, Building, MapPin, DollarSign, Download, ExternalLink } from 'lucide-react';
 
 export default function ApplicationCard({ application, onCancel }) {
