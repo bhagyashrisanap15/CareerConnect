@@ -14,7 +14,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const [savedJobs, setSavedJobs] = useState([]);
-
   // Verify authentication state on initial load
   useEffect(() => {
     const initAuth = async () => {
