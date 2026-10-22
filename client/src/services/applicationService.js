@@ -3,7 +3,11 @@ import api from './api';
 export const applicationService = {
   async applyForJob(jobId, applicationData) {
     try {
-      const response = await api.post(`/applications/${jobId}`, applicationData);
+      const headers = {};
+      if (applicationData instanceof FormData) {
+        headers['Content-Type'] = 'multipart/form-data';
+      }
+      const response = await api.post(`/applications/${jobId}`, applicationData, { headers });
       return response.data;
     } catch (error) {
       throw error.response?.data?.message || 'Failed to submit application';

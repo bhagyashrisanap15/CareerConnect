@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
+import { uploadResume } from "../middleware/uploadMiddleware.js";
 import {
   applyForJob,
   getMyApplications,
@@ -11,8 +12,8 @@ import {
 } from "../controllers/applicationController.js";
 
 const router = Router();
-router.post("/job/:jobId", protect, authorize("student"), applyForJob);
-router.post("/:jobId", protect, authorize("student"), applyForJob);
+router.post("/job/:jobId", protect, authorize("student"), uploadResume, applyForJob);
+router.post("/:jobId", protect, authorize("student"), uploadResume, applyForJob);
 router.get("/my", protect, authorize("student"), getMyApplications);
 router.get("/recruiter", protect, authorize("recruiter"), getRecruiterApplications);
 router.get("/detail/:id", protect, getApplicationDetail);
