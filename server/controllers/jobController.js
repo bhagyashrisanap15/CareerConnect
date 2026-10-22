@@ -9,8 +9,16 @@ export const createJob = async (req, res) => {
   try {
     // 1. Resolve or create company for recruiter
     let company = null;
+    const requestedCompanyName = req.body.companyName ? req.body.companyName.trim() : null;
+
     if (req.body.company && mongoose.Types.ObjectId.isValid(req.body.company)) {
-      company = await Company.findOne({ _id: req.body.company, createdBy: req.user._id });
+      const found = await Company.findById(req.body.company);
+      if (found && (!requestedCompanyName || found.name.toLowerCase() === requestedCompanyName.toLowerCase())) {
+        company = found;
+      }
+    }
+    if (!company && requestedCompanyName) {
+      company = await Company.findOne({ name: { $regex: new RegExp(`^${requestedCompanyName}$`, "i") } });
     }
     if (!company) {
       company = await Company.findOne({ createdBy: req.user._id });
@@ -22,7 +30,7 @@ export const createJob = async (req, res) => {
       }
     }
     if (!company) {
-      const companyName = req.body.companyName || (typeof req.body.company === 'string' && req.body.company.trim() ? req.body.company.trim() : null) || (req.user.name ? `${req.user.name}'s Company` : "Hiring Company");
+      const companyName = requestedCompanyName || (typeof req.body.company === 'string' && req.body.company.trim() ? req.body.company.trim() : null) || (req.user.name ? `${req.user.name}'s Company` : "Hiring Company");
       company = await Company.create({
         name: companyName,
         createdBy: req.user._id,
@@ -45,9 +53,15 @@ export const createJob = async (req, res) => {
       } else if (typeof req.body.category === "string" && req.body.category.trim()) {
         let cat = await Category.findOne({ name: { $regex: new RegExp(`^${req.body.category.trim()}$`, "i") } });
         if (!cat) {
-          cat = await Category.create({ name: req.body.category.trim() });
+          try {
+            cat = await Category.create({ name: req.body.category.trim() });
+          } catch {
+            cat = await Category.findOne({ name: { $regex: new RegExp(`^${req.body.category.trim()}$`, "i") } });
+          }
         }
-        categoryId = cat._id;
+        if (cat) {
+          categoryId = cat._id;
+        }
       }
     }
 
@@ -65,7 +79,8 @@ export const createJob = async (req, res) => {
     else if (rawType.includes("contract")) employmentType = "contract";
     else if (rawType.includes("remote")) employmentType = "remote";
     else if (req.body.workMode && req.body.workMode.toLowerCase() === "remote") employmentType = "remote";
-    else if (!req.body.employmentType) employmentType = "full-time";
+    else if (req.body.employmentType) employmentType = req.body.employmentType;
+    else employmentType = "full-time";
 
     // 4. Normalize skills, requirements, responsibilities
     let skills = req.body.skills || [];
@@ -84,7 +99,6 @@ export const createJob = async (req, res) => {
     const jobData = {
       ...req.body,
       company: company._id,
-      category: categoryId,
       type,
       employmentType,
       skills,
@@ -93,6 +107,17 @@ export const createJob = async (req, res) => {
       postedBy: req.user._id,
       status: req.body.status || "active"
     };
+
+    if (categoryId) {
+      jobData.category = categoryId;
+    } else {
+      delete jobData.category;
+    }
+
+    if (jobData.salaryMin === "" || isNaN(jobData.salaryMin)) delete jobData.salaryMin;
+    if (jobData.salaryMax === "" || isNaN(jobData.salaryMax)) delete jobData.salaryMax;
+    if (jobData.openings === "" || isNaN(jobData.openings)) delete jobData.openings;
+    if (jobData.stipend === "" || isNaN(jobData.stipend)) delete jobData.stipend;
 
     const job = await Job.create(jobData);
     const populated = await job.populate(["company", "category"]);
@@ -128,6 +153,16 @@ export const getJob = async (req, res) => {
 
 export const updateJob = async (req, res) => {
   try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    if (job.postedBy.toString() !== req.user._id.toString()) {
+      const comp = await Company.findOne({ _id: job.company, createdBy: req.user._id });
+      if (!comp && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to update this job" });
+      }
+    }
+
     let updateData = { ...req.body };
     if (typeof updateData.skills === "string") {
       updateData.skills = updateData.skills.split(",").map(s => s.trim()).filter(Boolean);
@@ -144,29 +179,71 @@ export const updateJob = async (req, res) => {
       else updateData.type = "job";
     }
 
-    const job = await Job.findOneAndUpdate(
-      { _id: req.params.id, postedBy: req.user._id },
+    if (updateData.category && !mongoose.Types.ObjectId.isValid(updateData.category)) {
+      let cat = await Category.findOne({ name: { $regex: new RegExp(`^${updateData.category.trim()}$`, "i") } });
+      if (!cat) {
+        try {
+          cat = await Category.create({ name: updateData.category.trim() });
+        } catch {
+          cat = await Category.findOne({ name: { $regex: new RegExp(`^${updateData.category.trim()}$`, "i") } });
+        }
+      }
+      if (cat) updateData.category = cat._id;
+      else delete updateData.category;
+    }
+
+    if (updateData.salaryMin === "" || isNaN(updateData.salaryMin)) delete updateData.salaryMin;
+    if (updateData.salaryMax === "" || isNaN(updateData.salaryMax)) delete updateData.salaryMax;
+
+    const updatedJob = await Job.findByIdAndUpdate(
+      req.params.id,
       updateData,
       { new: true, runValidators: true }
     ).populate("company category");
 
-    if (!job) return res.status(404).json({ message: "Job not found or not authorized" });
-    res.json(job);
+    res.json(updatedJob);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
 
 export const deleteJob = async (req, res) => {
-  const job = await Job.findOneAndDelete({ _id: req.params.id, postedBy: req.user._id });
-  if (!job) return res.status(404).json({ message: "Job not found or not authorized" });
-  await Application.deleteMany({ job: job._id });
-  res.json({ message: "Job deleted" });
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    if (job.postedBy.toString() !== req.user._id.toString()) {
+      const comp = await Company.findOne({ _id: job.company, createdBy: req.user._id });
+      if (!comp && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to delete this job" });
+      }
+    }
+
+    await Job.findByIdAndDelete(req.params.id);
+    await Application.deleteMany({ job: req.params.id });
+    res.json({ message: "Job deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const getRecruiterJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ postedBy: req.user._id })
+    const userCompanies = await Company.find({ createdBy: req.user._id }).select('_id');
+    const compIds = userCompanies.map(c => c._id);
+    const profile = await RecruiterProfile.findOne({ user: req.user._id });
+    if (profile?.company) compIds.push(profile.company);
+
+    const filter = {
+      $or: [
+        { postedBy: req.user._id }
+      ]
+    };
+    if (compIds.length > 0) {
+      filter.$or.push({ company: { $in: compIds } });
+    }
+
+    const jobs = await Job.find(filter)
       .populate("company", "name logo location")
       .populate("category", "name")
       .sort("-createdAt")
@@ -196,14 +273,28 @@ export const getRecruiterJobs = async (req, res) => {
 
 export const getRecruiterStats = async (req, res) => {
   try {
-    const jobs = await Job.find({ postedBy: req.user._id });
+    const userCompanies = await Company.find({ createdBy: req.user._id }).select('_id');
+    const compIds = userCompanies.map(c => c._id);
+    const profile = await RecruiterProfile.findOne({ user: req.user._id });
+    if (profile?.company) compIds.push(profile.company);
+
+    const filter = {
+      $or: [
+        { postedBy: req.user._id }
+      ]
+    };
+    if (compIds.length > 0) {
+      filter.$or.push({ company: { $in: compIds } });
+    }
+
+    const jobs = await Job.find(filter);
     const jobIds = jobs.map(j => j._id);
     const activeJobs = jobs.filter(j => j.status === "active").length;
 
     const [totalApplicants, shortlisted, hired] = await Promise.all([
       Application.countDocuments({ job: { $in: jobIds } }),
       Application.countDocuments({ job: { $in: jobIds }, status: "shortlisted" }),
-      Application.countDocuments({ job: { $in: jobIds }, status: "selected" })
+      Application.countDocuments({ job: { $in: jobIds }, status: { $in: ["selected", "hired", "accepted"] } })
     ]);
 
     res.json({

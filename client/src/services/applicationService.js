@@ -28,6 +28,15 @@ export const applicationService = {
     }
   },
 
+  async getRecruiterApplications() {
+    try {
+      const response = await api.get('/applications/recruiter');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.message || 'Failed to fetch applicants';
+    }
+  },
+
   async getApplicantDetails(id) {
     try {
       const response = await api.get(`/applications/detail/${id}`);

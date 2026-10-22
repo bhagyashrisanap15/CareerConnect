@@ -1,5 +1,6 @@
 import Application from "../models/Application.js";
 import Job from "../models/Job.js";
+import Company from "../models/Company.js";
 import StudentProfile from "../models/StudentProfile.js";
 
 export const applyForJob = async (req, res) => {
@@ -20,18 +21,73 @@ export const applyForJob = async (req, res) => {
 
 export const getMyApplications = async (req, res) => res.json(await Application.find({ student: req.user._id }).populate({ path: "job", populate: { path: "company", select: "name logo" } }).sort("-createdAt"));
 
+export const getRecruiterApplications = async (req, res) => {
+  try {
+    const userCompanies = await Company.find({ createdBy: req.user._id }).select("_id");
+    const compIds = userCompanies.map(c => c._id);
+    const jobs = await Job.find({
+      $or: [
+        { postedBy: req.user._id },
+        { company: { $in: compIds } }
+      ]
+    }).select("_id");
+    const jobIds = jobs.map(j => j._id);
+
+    const applications = await Application.find({
+      $or: [
+        { recruiter: req.user._id },
+        { job: { $in: jobIds } }
+      ]
+    })
+      .populate("job", "title location type company")
+      .populate("student", "name email phone avatar")
+      .sort("-createdAt");
+
+    res.json(applications);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getJobApplicants = async (req, res) => {
-  const job = await Job.findOne({ _id: req.params.jobId, postedBy: req.user._id });
-  if (!job) return res.status(403).json({ message: "Not authorized" });
-  res.json(await Application.find({ job: job._id }).populate("student", "name email phone").sort("-createdAt"));
+  try {
+    const job = await Job.findById(req.params.jobId);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    if (String(job.postedBy) !== String(req.user._id) && req.user.role !== "admin") {
+      const comp = await Company.findOne({ _id: job.company, createdBy: req.user._id });
+      if (!comp) {
+        return res.status(403).json({ message: "Not authorized to view applicants for this job" });
+      }
+    }
+
+    const applications = await Application.find({ job: job._id })
+      .populate("job", "title location type company")
+      .populate("student", "name email phone avatar")
+      .sort("-createdAt");
+
+    res.json(applications);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const updateApplicationStatus = async (req, res) => {
   const allowed = ["applied", "shortlisted", "interview", "selected", "rejected", "withdrawn"];
-  if (!allowed.includes(req.body.status)) return res.status(400).json({ message: "Invalid status" });
+  const normalizedStatus = (req.body.status || "").toLowerCase();
+  if (!allowed.includes(normalizedStatus)) return res.status(400).json({ message: "Invalid status" });
   const application = await Application.findById(req.params.id).populate("job");
-  if (!application || String(application.job.postedBy) !== String(req.user._id)) return res.status(404).json({ message: "Application not found or not authorized" });
-  application.status = req.body.status;
+  if (!application) return res.status(404).json({ message: "Application not found" });
+
+  const isOwner = application.job && (
+    String(application.job.postedBy) === String(req.user._id) ||
+    String(application.recruiter) === String(req.user._id)
+  );
+  if (!isOwner && req.user.role !== "admin") {
+    return res.status(403).json({ message: "Not authorized" });
+  }
+
+  application.status = normalizedStatus;
   application.notes = req.body.notes ?? application.notes;
   await application.save();
   res.json(application);
