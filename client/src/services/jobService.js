@@ -44,6 +44,24 @@ export const jobService = {
     } catch (error) {
       throw error.response?.data?.message || 'Failed to delete job';
     }
+  },
+
+  async getRecruiterJobs() {
+    try {
+      const response = await api.get('/jobs/recruiter/my-jobs');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.message || 'Failed to fetch recruiter jobs';
+    }
+  },
+
+  async getRecruiterStats() {
+    try {
+      const response = await api.get('/jobs/recruiter/stats');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.message || 'Failed to fetch recruiter stats';
+    }
   }
 };
 

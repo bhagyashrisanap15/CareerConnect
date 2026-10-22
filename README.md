@@ -181,7 +181,7 @@ The frontend will be running at `http://localhost:5173`.
 
 ## 👩‍💻 Author
 
-**Bhagyashri Sanap**
+**Bhagyashri  Sanap**
 - **GitHub**: [@bhagyashrisanap15](https://github.com/bhagyashrisanap15)
 - **Role**: Lead Full-Stack Developer & Architect
 

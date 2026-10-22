@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Briefcase, Calendar, DollarSign, MapPin } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Briefcase, Calendar, DollarSign, MapPin, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CATEGORIES, WORK_MODES, JOB_TYPES, EXPERIENCE_LEVELS } from '../../utils/constants';
+import { jobService } from '../../services/jobService';
+import { companyService } from '../../services/companyService';
+import { categoryService } from '../../services/categoryService';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function CreateJob() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categoryOptions, setCategoryOptions] = useState(CATEGORIES);
+  const [companyId, setCompanyId] = useState(null);
 
   const [formData, setFormData] = useState({
     title: '',
     type: 'Full Time',
     category: 'Software Development',
-    company: 'Vercel',
+    company: user?.companyName || '',
     location: '',
     workMode: 'Remote',
     salaryMin: '',
@@ -24,10 +32,85 @@ export default function CreateJob() {
     deadline: ''
   });
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    // Attempt to prefetch recruiter's registered company
+    const initData = async () => {
+      try {
+        const comp = await companyService.getRecruiterCompany();
+        if (comp) {
+          setCompanyId(comp._id);
+          setFormData((prev) => ({
+            ...prev,
+            company: comp.name || prev.company,
+            location: comp.location || prev.location
+          }));
+        }
+      } catch {
+        // Recruiter might not have configured company profile yet
+      }
+
+      try {
+        const cats = await categoryService.getCategories();
+        if (Array.isArray(cats) && cats.length > 0) {
+          const catNames = cats.map(c => typeof c === 'string' ? c : c.name);
+          setCategoryOptions(Array.from(new Set([...catNames, ...CATEGORIES])));
+        }
+      } catch {
+        // Fallback to default categories
+      }
+    };
+
+    initData();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    toast.success('Job published successfully!');
-    navigate('/recruiter/jobs');
+    if (!formData.title.trim()) {
+      toast.error('Job title is required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        type: formData.type.toLowerCase().includes('intern') ? 'internship' : 'job',
+        employmentType: formData.type.toLowerCase().includes('part')
+          ? 'part-time'
+          : formData.type.toLowerCase().includes('contract')
+          ? 'contract'
+          : formData.type.toLowerCase().includes('remote')
+          ? 'remote'
+          : 'full-time',
+        company: companyId || undefined,
+        companyName: formData.company || user?.name + "'s Company",
+        category: formData.category,
+        location: formData.location || 'Remote',
+        workMode: formData.workMode,
+        salaryMin: formData.salaryMin ? Number(formData.salaryMin) : undefined,
+        salaryMax: formData.salaryMax ? Number(formData.salaryMax) : undefined,
+        experience: formData.experience,
+        skills: formData.skills ? formData.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
+        responsibilities: formData.responsibilities
+          ? formData.responsibilities.split('\n').map((s) => s.trim()).filter(Boolean)
+          : [],
+        requirements: formData.requirements
+          ? formData.requirements.split('\n').map((s) => s.trim()).filter(Boolean)
+          : [],
+        applicationDeadline: formData.deadline || undefined,
+        status: 'active'
+      };
+
+      await jobService.createJob(payload);
+      toast.success('Job published successfully!');
+      navigate('/recruiter/jobs');
+    } catch (error) {
+      console.error('Failed to create job:', error);
+      toast.error(typeof error === 'string' ? error : error?.message || 'Failed to publish job opening');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -95,7 +178,7 @@ export default function CreateJob() {
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500"
               >
-                {CATEGORIES.map((c) => (
+                {categoryOptions.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
@@ -237,9 +320,20 @@ export default function CreateJob() {
             </Link>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-2"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-2 cursor-pointer transition-all"
             >
-              <PlusCircle className="w-4 h-4" /> Publish Job
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Publishing...</span>
+                </>
+              ) : (
+                <>
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Publish Job</span>
+                </>
+              )}
             </button>
           </div>
         </form>
